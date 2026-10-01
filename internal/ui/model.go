@@ -27,6 +27,7 @@ type Deps struct {
 	Load     func(context.Context) (Data, error)
 	OpenURL  func(string) error
 	SSH      func(string) error
+	Archive  func(context.Context, string) error
 	Now      func() time.Time
 	Interval time.Duration
 }
@@ -44,6 +45,7 @@ type Model struct {
 	offset      int
 	refreshedAt time.Time
 	builtAt     time.Time
+	confirming  *board.Session
 }
 
 type loadedMsg struct {
@@ -55,6 +57,10 @@ type tickMsg struct{}
 
 type actionErrMsg struct {
 	err error
+}
+
+type archivedMsg struct {
+	sessionID string
 }
 
 func New(deps Deps) Model {
@@ -97,6 +103,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.settle()
 		return m, nil
+	case archivedMsg:
+		m.removeSession(msg.sessionID)
+		m.settle()
+		if m.loading {
+			return m, nil
+		}
+		m.loading = true
+		return m, m.load()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -109,6 +123,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.confirming != nil {
+		session := *m.confirming
+		m.confirming = nil
+		if msg.String() == "y" {
+			return m, m.archive(session.ID)
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
@@ -132,6 +154,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openFirstPR()
 	case "s":
 		return m, m.sshSelected()
+	case "x":
+		if session, ok := m.selected(); ok {
+			m.confirming = &session
+		}
 	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		return m, m.openPR(int(msg.Runes[0] - '1'))
 	}
@@ -210,6 +236,27 @@ func (m Model) sshSelected() tea.Cmd {
 		return nil
 	}
 	return m.action(func() error { return m.deps.SSH(session.ID) })
+}
+
+func (m Model) archive(sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), loadTimeout)
+		defer cancel()
+		if err := m.deps.Archive(ctx, sessionID); err != nil {
+			return actionErrMsg{err: err}
+		}
+		return archivedMsg{sessionID: sessionID}
+	}
+}
+
+func (m *Model) removeSession(sessionID string) {
+	kept := m.data.Sessions[:0:0]
+	for _, s := range m.data.Sessions {
+		if s.ID != sessionID {
+			kept = append(kept, s)
+		}
+	}
+	m.data.Sessions = kept
 }
 
 func (m Model) action(run func() error) tea.Cmd {

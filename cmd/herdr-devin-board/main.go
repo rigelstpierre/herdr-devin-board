@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -20,9 +21,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "herdr-devin-board:", err)
 		os.Exit(1)
 	}
+	svc := newService(credentialsPath, archiveKeyPath(), github.NewClient(github.GHRunner))
 	h := host.New(host.ExecRunner, runtime.GOOS, os.Getenv("HERDR_PANE_ID"), os.Getenv("HERDR_BIN_PATH"))
 	model := ui.New(ui.Deps{
-		Load:    newLoader(credentialsPath, github.NewClient(github.GHRunner)),
+		Load:    svc.Load,
+		Archive: svc.Archive,
 		OpenURL: h.OpenURL,
 		SSH:     h.SSH,
 		Now:     time.Now,
@@ -31,4 +34,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "herdr-devin-board:", err)
 		os.Exit(1)
 	}
+}
+
+func archiveKeyPath() string {
+	dir := os.Getenv("HERDR_PLUGIN_CONFIG_DIR")
+	if dir == "" {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, ".config", "herdr", "plugins", "config", "rigelstpierre.devin-board")
+	}
+	return filepath.Join(dir, "api_key")
 }

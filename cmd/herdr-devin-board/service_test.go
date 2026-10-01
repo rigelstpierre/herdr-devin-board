@@ -30,7 +30,7 @@ func TestLoaderFetchesSelfOnceAndEnrichesOpenPRs(t *testing.T) {
 	gh := github.NewClient(func(context.Context, ...string) ([]byte, error) {
 		return []byte(`{"number":1,"state":"OPEN","statusCheckRollup":[]}`), nil
 	})
-	load := newLoader("/unused", gh)
+	load := newService("/unused", "/unused", gh).Load
 
 	for range 2 {
 		data, err := load(context.Background())
@@ -48,7 +48,7 @@ func TestLoaderFetchesSelfOnceAndEnrichesOpenPRs(t *testing.T) {
 
 func TestLoaderReportsMissingCredentialsAndRetries(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "credentials.toml")
-	load := newLoader(path, github.NewClient(nil))
+	load := newService(path, "/unused", github.NewClient(nil)).Load
 
 	if _, err := load(context.Background()); !errors.Is(err, devin.ErrNoCredentials) {
 		t.Fatalf("got %v", err)
@@ -82,7 +82,7 @@ func TestLoaderRereadsCredentialsAfterAuthFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	load := newLoader(path, github.NewClient(nil))
+	load := newService(path, "/unused", github.NewClient(nil)).Load
 
 	writeCreds("stale")
 	if _, err := load(context.Background()); err == nil {
@@ -91,5 +91,43 @@ func TestLoaderRereadsCredentialsAfterAuthFailure(t *testing.T) {
 	writeCreds("good")
 	if _, err := load(context.Background()); err != nil {
 		t.Fatalf("loader kept the stale key: %v", err)
+	}
+}
+
+func TestArchiveUsesTheConfigKeyAndSessionsOrg(t *testing.T) {
+	var archivePath, archiveAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v3/self":
+			fmt.Fprint(w, `{"user_id":"u","devin_sessions_org_id":"org-s"}`)
+		case r.Method == http.MethodPost:
+			archivePath, archiveAuth = r.URL.Path, r.Header.Get("Authorization")
+		default:
+			fmt.Fprint(w, `{"items":[],"has_next_page":false}`)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("DEVIN_API_KEY", "cli-key")
+	t.Setenv("DEVIN_API_URL", srv.URL)
+	keyPath := filepath.Join(t.TempDir(), "api_key")
+	if err := os.WriteFile(keyPath, []byte("archive-key\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc := newService("/unused", keyPath, github.NewClient(nil))
+
+	if err := svc.Archive(context.Background(), "abc"); err != nil {
+		t.Fatal(err)
+	}
+
+	if archivePath != "/v3/organizations/org-s/sessions/devin-abc/archive" || archiveAuth != "Bearer archive-key" {
+		t.Fatalf("archive %s auth=%q", archivePath, archiveAuth)
+	}
+}
+
+func TestArchiveWithoutKeyExplainsWhatToDo(t *testing.T) {
+	svc := newService("/unused", filepath.Join(t.TempDir(), "api_key"), github.NewClient(nil))
+
+	if err := svc.Archive(context.Background(), "abc"); !errors.Is(err, devin.ErrNoArchiveKey) {
+		t.Fatalf("got %v", err)
 	}
 }

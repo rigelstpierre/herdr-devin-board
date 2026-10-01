@@ -24,9 +24,11 @@ func fixtureData() Data {
 }
 
 type spy struct {
-	opened []string
-	sshed  []string
-	loads  int
+	opened     []string
+	sshed      []string
+	archived   []string
+	archiveErr error
+	loads      int
 }
 
 func newTestModel(s *spy) Model {
@@ -35,8 +37,12 @@ func newTestModel(s *spy) Model {
 			s.loads++
 			return fixtureData(), nil
 		},
-		OpenURL:  func(u string) error { s.opened = append(s.opened, u); return nil },
-		SSH:      func(id string) error { s.sshed = append(s.sshed, id); return nil },
+		OpenURL: func(u string) error { s.opened = append(s.opened, u); return nil },
+		SSH:     func(id string) error { s.sshed = append(s.sshed, id); return nil },
+		Archive: func(_ context.Context, id string) error {
+			s.archived = append(s.archived, id)
+			return s.archiveErr
+		},
 		Now:      func() time.Time { return fixedNow },
 		Interval: 30 * time.Second,
 	})
@@ -274,5 +280,64 @@ func TestZeroIntervalDefaults(t *testing.T) {
 
 	if m.deps.Interval != defaultInterval {
 		t.Fatalf("interval %v", m.deps.Interval)
+	}
+}
+
+func runMsg(t *testing.T, cmd tea.Cmd) tea.Msg {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("expected a command")
+	}
+	return cmd()
+}
+
+func TestArchiveAsksForConfirmationThenRemovesTheRow(t *testing.T) {
+	s := &spy{}
+	m := loaded(t, s)
+
+	m, cmd := update(t, m, key("x"))
+	if cmd != nil || len(s.archived) != 0 {
+		t.Fatal("x must only ask, not archive")
+	}
+	if !strings.Contains(m.statusLine(), `Archive "Fix IR-7158"?`) {
+		t.Fatalf("status line %q", m.statusLine())
+	}
+	m, cmd = update(t, m, key("y"))
+	msg := runMsg(t, cmd)
+	m, _ = update(t, m, msg)
+
+	if len(s.archived) != 1 || s.archived[0] != "s1" {
+		t.Fatalf("archived %v", s.archived)
+	}
+	if len(m.sessions()) != 0 {
+		t.Fatalf("archived session still listed: %+v", m.sessions())
+	}
+}
+
+func TestAnyOtherKeyCancelsArchiveWithoutActing(t *testing.T) {
+	s := &spy{}
+	m := loaded(t, s)
+
+	m, _ = update(t, m, key("x"))
+	m, cmd := update(t, m, key("s"))
+
+	if cmd != nil || len(s.sshed) != 0 || len(s.archived) != 0 {
+		t.Fatalf("cancel key acted: cmd=%v sshed=%v archived=%v", cmd != nil, s.sshed, s.archived)
+	}
+	if strings.Contains(m.statusLine(), "Archive") {
+		t.Fatalf("prompt still showing: %q", m.statusLine())
+	}
+}
+
+func TestArchiveFailureShowsInStatusLine(t *testing.T) {
+	s := &spy{archiveErr: errors.New("archiving needs a Devin API key — see the README")}
+	m := loaded(t, s)
+
+	m, _ = update(t, m, key("x"))
+	m, cmd := update(t, m, key("y"))
+	m, _ = update(t, m, runMsg(t, cmd))
+
+	if !strings.Contains(m.statusLine(), "needs a Devin API key") || len(m.sessions()) != 1 {
+		t.Fatalf("status %q, sessions %d", m.statusLine(), len(m.sessions()))
 	}
 }

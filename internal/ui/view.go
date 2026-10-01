@@ -49,7 +49,7 @@ var (
 	}
 	keyHints = [][2]string{
 		{"Enter", "open"}, {"↑↓", "select"}, {"p", "PR"}, {"1-9", "nth PR"},
-		{"s", "ssh"}, {"a", "all"}, {"r", "refresh"}, {"q", "quit"},
+		{"s", "ssh"}, {"x", "archive"}, {"a", "all"}, {"r", "refresh"}, {"q", "quit"},
 	}
 )
 
@@ -338,6 +338,9 @@ func keyHintLine() string {
 }
 
 func (m Model) statusLine() string {
+	if m.confirming != nil {
+		return styleYellow.Bold(true).Render(fmt.Sprintf("Archive %q? y to confirm · any other key cancels", m.confirming.Title))
+	}
 	if m.err != nil {
 		return styleError.Render(m.err.Error())
 	}

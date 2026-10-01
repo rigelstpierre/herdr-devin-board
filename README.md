@@ -26,9 +26,24 @@ Then run the **Open Devin board** action.
 | `p` | Open the session's first PR |
 | `1`–`9` | Open the session's nth PR (listed in the detail panel) |
 | `s` | `devin ssh` into the session in a new pane |
+| `x` | Archive the session (asks `y` to confirm; sleeps it if running) |
 | `a` | Show all (include finished, and suspended without an open PR, older than 7 days) |
 | `r` | Refresh now (auto-refreshes every 30s) |
 | `q` | Quit |
+
+## Archiving
+
+Devin's archive endpoint rejects the CLI login token, so `x` needs a Devin API key with
+permission to manage sessions (create one in Devin settings → API keys; an org admin may
+need to do it on enterprise). Put it in the plugin's config dir:
+
+```bash
+dir="$(herdr plugin config-dir rigelstpierre.devin-board)"
+mkdir -p "$dir" && pbpaste > "$dir/api_key" && chmod 600 "$dir/api_key"
+```
+
+The key is read on every archive, so no restart is needed. Listing keeps using the Devin
+CLI login.
 
 ## Configuration
 

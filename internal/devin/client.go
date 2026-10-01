@@ -57,6 +57,10 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("Devin API %d: %s", e.StatusCode, e.Body)
 }
 
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 func (c *Client) Self(ctx context.Context) (Self, error) {
 	var self Self
 	if err := c.get(ctx, "/v3/self", nil, &self); err != nil {
@@ -94,11 +98,15 @@ func (c *Client) ListSessions(ctx context.Context, self Self) ([]Session, error)
 }
 
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
+	return c.do(ctx, http.MethodGet, path, query, out)
+}
+
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, out any) error {
 	target := c.baseURL + path
 	if len(query) > 0 {
 		target += "?" + query.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	req, err := http.NewRequestWithContext(ctx, method, target, nil)
 	if err != nil {
 		return err
 	}
@@ -113,9 +121,12 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 		return fmt.Errorf("Devin API %s: %w", path, err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return &APIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+	}
+	if out == nil {
+		return nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("decode Devin %s: %w", path, err)
