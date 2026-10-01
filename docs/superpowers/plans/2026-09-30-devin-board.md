@@ -1,3 +1,5 @@
+> **Historical.** This is the original v0.1 implementation plan, kept for reference. The board has changed since (table layout, attach in a tab, archiving); see the README and `docs/superpowers/specs/2026-09-30-devin-board-design.md` for current behavior.
+
 # herdr-devin-board Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
