@@ -94,7 +94,7 @@ func TestArchiveAuthFailureExplainsTheKeyType(t *testing.T) {
 
 	err := client.Archive(context.Background(), "o", "abc")
 
-	if err == nil || !strings.Contains(err.Error(), "service user") || strings.Contains(err.Error(), "devin auth login") {
+	if err == nil || !strings.Contains(err.Error(), "ManageOrgSessions") || strings.Contains(err.Error(), "devin auth login") {
 		t.Fatalf("message %q", err)
 	}
 	var apiErr *devin.APIError

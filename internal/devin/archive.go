@@ -47,7 +47,7 @@ type ArchiveAuthError struct {
 }
 
 func (e *ArchiveAuthError) Error() string {
-	return fmt.Sprintf("Devin API key can't archive (HTTP %d) — it needs a v3 service user key, not a legacy apk_ key; see the README", e.Err.StatusCode)
+	return fmt.Sprintf("Devin API key can't archive (HTTP %d) — it needs a cog_ key (service user or PAT) with ManageOrgSessions; see the README", e.Err.StatusCode)
 }
 
 func (e *ArchiveAuthError) Unwrap() error {
