@@ -128,3 +128,45 @@ func TestOpenPRURLs(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestBuildPrefersGitHubStateOverDevin(t *testing.T) {
+	sessions := []devin.Session{{
+		ID: "s", Status: "running", UpdatedAt: ago(time.Minute),
+		PullRequests: []devin.PullRequest{
+			{URL: "https://github.com/o/r/pull/1", State: "open"},
+			{URL: "https://github.com/o/r/pull/2", State: "open"},
+		},
+	}}
+	statuses := map[string]github.PRStatus{
+		"https://github.com/o/r/pull/1": {Number: 1, State: "MERGED"},
+		"https://github.com/o/r/pull/2": {Number: 2, State: "CLOSED", IsDraft: true},
+	}
+
+	prs := board.Build(sessions, statuses, opts(false))[0].PRs
+
+	if prs[0].State != "merged" || prs[1].State != "closed" {
+		t.Fatalf("got %q, %q", prs[0].State, prs[1].State)
+	}
+}
+
+func TestBuildParsesPRURLs(t *testing.T) {
+	cases := []struct {
+		url    string
+		repo   string
+		number int
+	}{
+		{"https://github.com/rootlyhq/rootly/pull/23601", "rootly", 23601},
+		{"https://github.com/rootlyhq/rootly/pull/23601/files", "rootly", 23601},
+		{"https://github.com/rootlyhq/rootly/issues/5", "", 0},
+		{"not a url", "", 0},
+	}
+	for _, tc := range cases {
+		sessions := []devin.Session{{ID: "s", UpdatedAt: ago(time.Minute), PullRequests: []devin.PullRequest{{URL: tc.url, State: "merged"}}}}
+
+		pr := board.Build(sessions, nil, opts(false))[0].PRs[0]
+
+		if pr.Repo != tc.repo || pr.Number != tc.number {
+			t.Errorf("%q: got %q #%d want %q #%d", tc.url, pr.Repo, pr.Number, tc.repo, tc.number)
+		}
+	}
+}

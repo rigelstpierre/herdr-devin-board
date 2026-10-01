@@ -1,10 +1,13 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -29,7 +32,12 @@ type PRStatus struct {
 type Runner func(ctx context.Context, args ...string) ([]byte, error)
 
 func GHRunner(ctx context.Context, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, "gh", args...).Output()
+	out, err := exec.CommandContext(ctx, "gh", args...).Output()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+		return out, fmt.Errorf("%w: %s", err, bytes.TrimSpace(exitErr.Stderr))
+	}
+	return out, err
 }
 
 type Client struct {
@@ -65,6 +73,7 @@ func (c *Client) PRStatus(ctx context.Context, prURL string) (PRStatus, error) {
 }
 
 func (c *Client) Statuses(ctx context.Context, urls []string, parallel int) map[string]PRStatus {
+	parallel = max(parallel, 1)
 	statuses := make(map[string]PRStatus, len(urls))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -106,6 +115,13 @@ func (c check) key() string {
 	return "check:" + c.Workflow + "/" + c.Name
 }
 
+func (c check) startedOrNewest() string {
+	if c.StartedAt == "" || strings.HasPrefix(c.StartedAt, "0001-") {
+		return "9999"
+	}
+	return c.StartedAt
+}
+
 func latestPerCheck(checks []check) []check {
 	latest := map[string]check{}
 	var order []string
@@ -115,7 +131,7 @@ func latestPerCheck(checks []check) []check {
 		if !seen {
 			order = append(order, key)
 		}
-		if !seen || c.StartedAt >= previous.StartedAt {
+		if !seen || c.startedOrNewest() >= previous.startedOrNewest() {
 			latest[key] = c
 		}
 	}

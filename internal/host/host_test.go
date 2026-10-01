@@ -92,3 +92,16 @@ func TestSSHErrorsWhenSplitReturnsNoPane(t *testing.T) {
 		t.Fatal("want error")
 	}
 }
+
+func TestOpenURLRejectsNonHTTPTargets(t *testing.T) {
+	for _, target := range []string{"file:///etc/passwd", "/Applications/Calculator.app", "-a Terminal"} {
+		r := &recorder{}
+
+		if err := host.New(r.run, "darwin", "", "").OpenURL(target); err == nil {
+			t.Errorf("%q: want error", target)
+		}
+		if len(r.calls) != 0 {
+			t.Errorf("%q: ran %v", target, r.calls)
+		}
+	}
+}

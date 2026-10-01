@@ -1,9 +1,11 @@
 package host
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"regexp"
 )
@@ -11,7 +13,12 @@ import (
 type Runner func(name string, args ...string) ([]byte, error)
 
 func ExecRunner(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).Output()
+	out, err := exec.Command(name, args...).Output()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+		return out, fmt.Errorf("%w: %s", err, bytes.TrimSpace(exitErr.Stderr))
+	}
+	return out, err
 }
 
 var sessionIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -31,6 +38,9 @@ func New(run Runner, goos, paneID, herdrPath string) *Host {
 }
 
 func (h *Host) OpenURL(target string) error {
+	if parsed, err := url.Parse(target); err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+		return fmt.Errorf("refusing to open non-web URL %q", target)
+	}
 	opener := "xdg-open"
 	if h.goos == "darwin" {
 		opener = "open"
