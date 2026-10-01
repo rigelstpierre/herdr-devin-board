@@ -102,3 +102,7 @@ herdr plugin link .
 ```
 
 `herdr plugin link` does not run build commands, so rebuild after changes. The design notes are in `docs/superpowers/specs/`.
+
+## License
+
+[MIT](LICENSE)
