@@ -4,7 +4,7 @@ import "testing"
 
 func TestWorkspaceDirFromPluginContext(t *testing.T) {
 	cases := map[string]string{
-		`{"workspace_id":"wB","workspace_cwd":"/Users/me/rootly"}`: "/Users/me/rootly",
+		`{"workspace_id":"wB","workspace_cwd":"/Users/me/project"}`: "/Users/me/project",
 		`{"workspace_id":"wB"}`: "",
 		`not json`:              "",
 		``:                      "",

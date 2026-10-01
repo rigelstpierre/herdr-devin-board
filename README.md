@@ -101,4 +101,4 @@ go build -o bin/herdr-devin-board ./cmd/herdr-devin-board
 herdr plugin link .
 ```
 
-`herdr plugin link` does not run build commands, so rebuild after changes. The design notes are in `docs/`.
+`herdr plugin link` does not run build commands, so rebuild after changes. The design notes are in `docs/superpowers/specs/`.

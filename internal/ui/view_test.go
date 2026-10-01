@@ -22,22 +22,22 @@ var updateGolden = flag.Bool("update", false, "rewrite golden files")
 func goldenData() Data {
 	return Data{
 		Sessions: []devin.Session{
-			{ID: "s1", URL: "https://devin.test/sessions/s1", Title: "Fix IR-7158", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
-				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23601", State: "open"}}},
-			{ID: "s2", URL: "https://devin.test/sessions/s2", Title: "Add SCIM phone normalisation", Status: "running", StatusDetail: "waiting_for_user", UpdatedAt: fixedNow.Add(-18 * time.Minute).Unix(),
+			{ID: "s1", URL: "https://devin.test/sessions/s1", Title: "Fix login redirect", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
+				PullRequests: []devin.PullRequest{{URL: "https://github.com/acme/api/pull/23601", State: "open"}}},
+			{ID: "s2", URL: "https://devin.test/sessions/s2", Title: "Normalize phone numbers", Status: "running", StatusDetail: "waiting_for_user", UpdatedAt: fixedNow.Add(-18 * time.Minute).Unix(),
 				PullRequests: []devin.PullRequest{
-					{URL: "https://github.com/rootlyhq/rootly/pull/23588", State: "open"},
-					{URL: "https://github.com/rootlyhq/terraform-rootly/pull/1550", State: "merged"},
+					{URL: "https://github.com/acme/api/pull/23588", State: "open"},
+					{URL: "https://github.com/acme/infra/pull/1550", State: "merged"},
 				}},
 			{ID: "s3", URL: "https://devin.test/sessions/s3", Title: "Bump herdr config", Status: "exit", UpdatedAt: fixedNow.Add(-3 * time.Hour).Unix(),
-				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23540", State: "merged"}}},
+				PullRequests: []devin.PullRequest{{URL: "https://github.com/acme/api/pull/23540", State: "merged"}}},
 			{ID: "s4", URL: "https://devin.test/sessions/s4", Title: "Investigate flaky alert spec", Status: "error", UpdatedAt: fixedNow.Add(-26 * time.Hour).Unix(),
-				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23500", State: "open"}}},
+				PullRequests: []devin.PullRequest{{URL: "https://github.com/acme/api/pull/23500", State: "open"}}},
 			{ID: "s5", URL: "https://devin.test/sessions/s5", Title: "Idle research", Status: "suspended", StatusDetail: "inactivity", UpdatedAt: fixedNow.Add(-50 * time.Hour).Unix()},
 		},
 		Statuses: map[string]github.PRStatus{
-			"https://github.com/rootlyhq/rootly/pull/23601": {Number: 23601, State: "OPEN", CI: github.CIPassing, Review: "REVIEW_REQUIRED"},
-			"https://github.com/rootlyhq/rootly/pull/23588": {Number: 23588, State: "OPEN", IsDraft: true, CI: github.CIFailing},
+			"https://github.com/acme/api/pull/23601": {Number: 23601, State: "OPEN", CI: github.CIPassing, Review: "REVIEW_REQUIRED"},
+			"https://github.com/acme/api/pull/23588": {Number: 23588, State: "OPEN", IsDraft: true, CI: github.CIFailing},
 		},
 	}
 }
@@ -91,7 +91,7 @@ func TestTableHasColumnHeadersAndOneRowPerSession(t *testing.T) {
 		}
 	}
 	rows := lines[header+2 : header+2+5]
-	for _, title := range []string{"Add SCIM phone normalisation", "Fix IR-7158", "Bump herdr config", "Investigate flaky alert spec", "Idle research"} {
+	for _, title := range []string{"Normalize phone numbers", "Fix login redirect", "Bump herdr config", "Investigate flaky alert spec", "Idle research"} {
 		found := false
 		for _, r := range rows {
 			found = found || strings.Contains(r, title)
@@ -114,7 +114,7 @@ func TestColumnsAlignAcrossRows(t *testing.T) {
 	}
 	prColumn := column(headerLine, "  PR ") + 2
 	for _, l := range lines {
-		if i := strings.Index(l, "#23"); i >= 0 && !strings.Contains(l, "github.com") && !strings.Contains(l, "rootlyhq/") {
+		if i := strings.Index(l, "#23"); i >= 0 && !strings.Contains(l, "github.com") {
 			if got := ansi.StringWidth(l[:i]); got != prColumn {
 				t.Fatalf("PR cell at column %d, header at %d: %q", got, prColumn, l)
 			}
@@ -128,8 +128,8 @@ func TestDetailPanelShowsSelectedSessionAndAllItsPRs(t *testing.T) {
 	for _, want := range []string{
 		"https://devin.test/sessions/s2",
 		"waiting for user",
-		"https://github.com/rootlyhq/rootly/pull/23588",
-		"https://github.com/rootlyhq/terraform-rootly/pull/1550",
+		"https://github.com/acme/api/pull/23588",
+		"https://github.com/acme/infra/pull/1550",
 	} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("detail missing %q:\n%s", want, view)
@@ -179,10 +179,10 @@ func TestErrorShowsInStatusLine(t *testing.T) {
 
 func TestUnknownPRStatusShowsQuestionMark(t *testing.T) {
 	data := goldenData()
-	delete(data.Statuses, "https://github.com/rootlyhq/rootly/pull/23601")
+	delete(data.Statuses, "https://github.com/acme/api/pull/23601")
 
 	for _, l := range viewLines(render(t, data, 120, 0)) {
-		if strings.Contains(l, "Fix IR-7158") && !strings.Contains(l, "?") {
+		if strings.Contains(l, "Fix login redirect") && !strings.Contains(l, "?") {
 			t.Fatalf("expected ? for unknown CI: %q", l)
 		}
 	}

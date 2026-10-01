@@ -1,8 +1,7 @@
 # herdr-devin-board — Design
 
 Date: 2026-09-30
-Status: Current. Updated to match the shipped behavior; the original v0.1 plan is in
-`docs/superpowers/plans/`.
+Status: Current. Updated to match the shipped behavior.
 
 ## Goal
 

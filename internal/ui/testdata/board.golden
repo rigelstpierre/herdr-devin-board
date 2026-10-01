@@ -1,18 +1,18 @@
 Devin Sessions
 5 sessions · 1 waiting · 1 running · 1 error · 1 suspended · 1 finished
 
-STATUS       SESSION                                 REPO    PR         CI  REVIEW           UPDATED
+STATUS       SESSION                                   REPO  PR         CI  REVIEW           UPDATED
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-◐ waiting    Add SCIM phone normalisation            rootly  #23588 +1  ✕   draft                18m
-● running    Fix IR-7158                             rootly  #23601     ✓   review required       2m
-○ finished   Bump herdr config                       rootly  #23540     –   merged                3h
-✗ error      Investigate flaky alert spec            rootly  #23500     ?   ?                     1d
-◌ suspended  Idle research                           –       –          –   –                     2d
+◐ waiting    Normalize phone numbers                   api   #23588 +1  ✕   draft                18m
+● running    Fix login redirect                        api   #23601     ✓   review required       2m
+○ finished   Bump herdr config                         api   #23540     –   merged                3h
+✗ error      Investigate flaky alert spec              api   #23500     ?   ?                     1d
+◌ suspended  Idle research                             –     –          –   –                     2d
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 https://devin.test/sessions/s2
 ◐ waiting · waiting for user · updated 18m ago
-1  rootly #23588 · draft · CI failing  https://github.com/rootlyhq/rootly/pull/23588
-2  terraform-rootly #1550 · merged  https://github.com/rootlyhq/terraform-rootly/pull/1550
+1  api #23588 · draft · CI failing  https://github.com/acme/api/pull/23588
+2  infra #1550 · merged  https://github.com/acme/infra/pull/1550
 
 Enter tab · o web · ↑↓ select · p PR · 1-9 nth PR · s ssh · x archive · a all · r refresh · q quit
 refreshed 12s ago · last 7 days

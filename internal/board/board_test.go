@@ -92,13 +92,13 @@ func TestBuildMergesPRStatus(t *testing.T) {
 	sessions := []devin.Session{{
 		ID: "s", Status: "running", UpdatedAt: ago(time.Minute), Title: "",
 		PullRequests: []devin.PullRequest{
-			{URL: "https://github.com/rootlyhq/rootly/pull/10", State: "open"},
-			{URL: "https://github.com/rootlyhq/rootly/pull/11", State: "open"},
-			{URL: "https://github.com/rootlyhq/docs/pull/12", State: "merged"},
+			{URL: "https://github.com/acme/api/pull/10", State: "open"},
+			{URL: "https://github.com/acme/api/pull/11", State: "open"},
+			{URL: "https://github.com/acme/docs/pull/12", State: "merged"},
 		},
 	}}
 	statuses := map[string]github.PRStatus{
-		"https://github.com/rootlyhq/rootly/pull/10": {Number: 10, State: "OPEN", IsDraft: true, CI: github.CIFailing, Review: "REVIEW_REQUIRED"},
+		"https://github.com/acme/api/pull/10": {Number: 10, State: "OPEN", IsDraft: true, CI: github.CIFailing, Review: "REVIEW_REQUIRED"},
 	}
 
 	got := board.Build(sessions, statuses, opts(false))[0]
@@ -107,9 +107,9 @@ func TestBuildMergesPRStatus(t *testing.T) {
 		t.Fatalf("title %q", got.Title)
 	}
 	want := []board.PR{
-		{URL: "https://github.com/rootlyhq/rootly/pull/10", Repo: "rootly", Number: 10, State: "draft", CI: github.CIFailing, Review: "REVIEW_REQUIRED"},
-		{URL: "https://github.com/rootlyhq/rootly/pull/11", Repo: "rootly", Number: 11, State: "open", Unknown: true},
-		{URL: "https://github.com/rootlyhq/docs/pull/12", Repo: "docs", Number: 12, State: "merged"},
+		{URL: "https://github.com/acme/api/pull/10", Repo: "api", Number: 10, State: "draft", CI: github.CIFailing, Review: "REVIEW_REQUIRED"},
+		{URL: "https://github.com/acme/api/pull/11", Repo: "api", Number: 11, State: "open", Unknown: true},
+		{URL: "https://github.com/acme/docs/pull/12", Repo: "docs", Number: 12, State: "merged"},
 	}
 	if !reflect.DeepEqual(got.PRs, want) {
 		t.Fatalf("got %+v\nwant %+v", got.PRs, want)
@@ -155,9 +155,9 @@ func TestBuildParsesPRURLs(t *testing.T) {
 		repo   string
 		number int
 	}{
-		{"https://github.com/rootlyhq/rootly/pull/23601", "rootly", 23601},
-		{"https://github.com/rootlyhq/rootly/pull/23601/files", "rootly", 23601},
-		{"https://github.com/rootlyhq/rootly/issues/5", "", 0},
+		{"https://github.com/acme/api/pull/23601", "api", 23601},
+		{"https://github.com/acme/api/pull/23601/files", "api", 23601},
+		{"https://github.com/acme/api/issues/5", "", 0},
 		{"not a url", "", 0},
 	}
 	for _, tc := range cases {

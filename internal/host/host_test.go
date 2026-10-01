@@ -118,12 +118,12 @@ func TestAttachCreatesANamedTabAndResumesTheCloudSession(t *testing.T) {
 	r := &recorder{outputs: [][]byte{[]byte(tabCreated)}}
 	h := host.New(r.run, "darwin", "w1:p2", "herdr").InWorkspace("w1")
 
-	if err := h.Attach("25f09dbe", "Fix IR-7159"); err != nil {
+	if err := h.Attach("25f09dbe", "Fix signup email"); err != nil {
 		t.Fatal(err)
 	}
 
 	want := [][]string{
-		{"herdr", "tab", "create", "--label", "Devin · Fix IR-7159", "--focus", "--workspace", "w1"},
+		{"herdr", "tab", "create", "--label", "Devin · Fix signup email", "--focus", "--workspace", "w1"},
 		{"herdr", "pane", "run", "w1:p9", "devin --cloud --resume 25f09dbe"},
 	}
 	if !reflect.DeepEqual(r.calls, want) {

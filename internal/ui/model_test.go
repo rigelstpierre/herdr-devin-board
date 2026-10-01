@@ -17,8 +17,8 @@ var fixedNow = time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 
 func fixtureData() Data {
 	return Data{Sessions: []devin.Session{
-		{ID: "s1", URL: "https://devin.test/sessions/s1", Title: "Fix IR-7158", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
-			PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23601", State: "merged"}}},
+		{ID: "s1", URL: "https://devin.test/sessions/s1", Title: "Fix login redirect", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
+			PullRequests: []devin.PullRequest{{URL: "https://github.com/acme/api/pull/23601", State: "merged"}}},
 		{ID: "s2", URL: "https://devin.test/sessions/s2", Title: "Old work", Status: "exit", UpdatedAt: fixedNow.Add(-10 * 24 * time.Hour).Unix()},
 	}}
 }
@@ -98,7 +98,7 @@ func TestEnterAttachesInATabAndDownMovesToNextSession(t *testing.T) {
 	_, cmd = update(t, m, key("enter"))
 	run(t, cmd)
 
-	want := []string{"s1:Fix IR-7158", "s2:Old work"}
+	want := []string{"s1:Fix login redirect", "s2:Old work"}
 	if len(s.attached) != 2 || s.attached[0] != want[0] || s.attached[1] != want[1] {
 		t.Fatalf("attached %v", s.attached)
 	}
@@ -128,7 +128,7 @@ func TestPOpensFirstPRAndSSHes(t *testing.T) {
 	_, cmd = update(t, m, key("s"))
 	run(t, cmd)
 
-	if len(s.opened) != 1 || s.opened[0] != "https://github.com/rootlyhq/rootly/pull/23601" {
+	if len(s.opened) != 1 || s.opened[0] != "https://github.com/acme/api/pull/23601" {
 		t.Fatalf("opened %v", s.opened)
 	}
 	if len(s.sshed) != 1 || s.sshed[0] != "s1" {
@@ -319,7 +319,7 @@ func TestArchiveAsksForConfirmationThenRemovesTheRow(t *testing.T) {
 	if cmd != nil || len(s.archived) != 0 {
 		t.Fatal("x must only ask, not archive")
 	}
-	if !strings.Contains(m.statusLine(), `Archive "Fix IR-7158"?`) {
+	if !strings.Contains(m.statusLine(), `Archive "Fix login redirect"?`) {
 		t.Fatalf("status line %q", m.statusLine())
 	}
 	m, cmd = update(t, m, key("y"))
