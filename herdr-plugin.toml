@@ -1,6 +1,6 @@
 id = "rigelstpierre.devin-board"
 name = "Devin Board"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.0"
 description = "My Devin Cloud sessions with status and the live GitHub status of their PRs."
 platforms = ["macos", "linux"]
