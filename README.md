@@ -1,5 +1,7 @@
 # herdr-devin-board
 
+[![test](https://github.com/rigelstpierre/herdr-devin-board/actions/workflows/test.yml/badge.svg)](https://github.com/rigelstpierre/herdr-devin-board/actions/workflows/test.yml)
+
 A [herdr](https://herdr.dev) plugin that lists your own Devin Cloud sessions in a tab, with each session's status and the live GitHub status (CI, review, draft) of the PRs it opened. From the board you can attach to a session in a new herdr tab, open it in the browser, `ssh` into its box, or archive it.
 
 ```
@@ -27,6 +29,8 @@ refreshed 12s ago · last 7 days
 - Go 1.24+ (herdr builds the plugin on install)
 - [Devin CLI](https://docs.devin.ai), logged in with `devin auth login`. The board reuses its stored credentials to list your sessions.
 - [`gh`](https://cli.github.com), logged in, for PR CI and review status. Without it the board still works, and PR columns show `?`.
+
+Tested with Devin Enterprise on macOS. It should work with regular `app.devin.ai` accounts and on Linux, but neither has been tried yet; reports welcome.
 
 ## Install
 
@@ -72,10 +76,21 @@ Save the key in the plugin's config directory:
 
 ```bash
 dir="$(herdr plugin config-dir rigelstpierre.devin-board)"
-mkdir -p "$dir" && pbpaste > "$dir/api_key" && chmod 600 "$dir/api_key"
+mkdir -p "$dir" && bash -c 'umask 077; read -rsp "Devin API key: " key; echo; printf "%s\n" "$key" > "$1/api_key"' _ "$dir"
 ```
 
+This prompts without echoing, keeps the key out of your shell history, and creates the file readable only by you.
+
 The key is read on every archive, so no restart is needed. Listing keeps using the Devin CLI login.
+
+## How it handles your credentials
+
+- **Listing** reuses the token the Devin CLI stores in `~/.local/share/devin/credentials.toml`. The board only reads it and never writes it.
+- **Archiving** uses the key in `<config dir>/api_key`. It is read from disk on each archive and never logged or shown.
+- **GitHub** status comes from your existing `gh` login; the board runs `gh pr view` and holds no GitHub token itself.
+- **Network:** the board talks only to the Devin API (`api.devin.ai`, or `DEVIN_API_URL`) and, through `gh`, to GitHub.
+
+The CLI credentials file is not a documented Devin interface, so a Devin CLI update could change it. If listing breaks after an update, set `DEVIN_API_KEY` to a personal access token as a workaround (a service user key has no user, so it can't tell which sessions are yours) and open an issue.
 
 ## Configuration
 
