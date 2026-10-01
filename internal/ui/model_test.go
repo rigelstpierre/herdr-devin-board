@@ -76,9 +76,10 @@ func TestLoadedDataHidesOldFinishedUntilShowAll(t *testing.T) {
 	}
 }
 
-func TestEnterOpensSessionThenPR(t *testing.T) {
+func TestEnterOpensSessionAndDownMovesToNextSession(t *testing.T) {
 	s := &spy{}
 	m := loaded(t, s)
+	m, _ = update(t, m, key("a"))
 
 	_, cmd := update(t, m, key("enter"))
 	run(t, cmd)
@@ -86,7 +87,7 @@ func TestEnterOpensSessionThenPR(t *testing.T) {
 	_, cmd = update(t, m, key("enter"))
 	run(t, cmd)
 
-	want := []string{"https://devin.test/sessions/s1", "https://github.com/rootlyhq/rootly/pull/23601"}
+	want := []string{"https://devin.test/sessions/s1", "https://devin.test/sessions/s2"}
 	if len(s.opened) != 2 || s.opened[0] != want[0] || s.opened[1] != want[1] {
 		t.Fatalf("opened %v", s.opened)
 	}
@@ -106,6 +107,26 @@ func TestPOpensFirstPRAndSSHes(t *testing.T) {
 	}
 	if len(s.sshed) != 1 || s.sshed[0] != "s1" {
 		t.Fatalf("sshed %v", s.sshed)
+	}
+}
+
+func TestNumberKeysOpenTheNthPR(t *testing.T) {
+	s := &spy{}
+	data := Data{Sessions: []devin.Session{{ID: "s", URL: "u", Status: "running", UpdatedAt: fixedNow.Unix(),
+		PullRequests: []devin.PullRequest{
+			{URL: "https://github.com/o/r/pull/1", State: "merged"},
+			{URL: "https://github.com/o/r/pull/2", State: "merged"},
+		}}}}
+	m, _ := update(t, newTestModel(s), loadedMsg{data: data})
+
+	_, cmd := update(t, m, key("2"))
+	run(t, cmd)
+	if _, cmd := update(t, m, key("3")); cmd != nil {
+		t.Fatal("no third PR, expected no command")
+	}
+
+	if len(s.opened) != 1 || s.opened[0] != "https://github.com/o/r/pull/2" {
+		t.Fatalf("opened %v", s.opened)
 	}
 }
 
@@ -157,7 +178,7 @@ func run(t *testing.T, cmd tea.Cmd) {
 
 func selectedID(t *testing.T, m Model) string {
 	t.Helper()
-	session, _, ok := m.selected()
+	session, ok := m.selected()
 	if !ok {
 		t.Fatal("nothing selected")
 	}
@@ -230,7 +251,7 @@ func TestCursorScrollsWithinWindowHeight(t *testing.T) {
 		})
 	}
 	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: Data{Sessions: sessions}})
-	m, _ = update(t, m, tea.WindowSizeMsg{Width: 80, Height: 9})
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 100, Height: 20})
 
 	for range 11 {
 		m, _ = update(t, m, key("down"))
@@ -243,7 +264,7 @@ func TestCursorScrollsWithinWindowHeight(t *testing.T) {
 	if strings.Contains(view, "session 00") {
 		t.Fatalf("top row should have scrolled off:\n%s", view)
 	}
-	if lines := strings.Count(view, "\n"); lines > 9 {
+	if lines := strings.Count(view, "\n") + 1; lines != 20 {
 		t.Fatalf("view is %d lines, taller than the window:\n%s", lines, view)
 	}
 }

@@ -22,15 +22,18 @@ var updateGolden = flag.Bool("update", false, "rewrite golden files")
 func goldenData() Data {
 	return Data{
 		Sessions: []devin.Session{
-			{ID: "s1", Title: "Fix IR-7158", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
+			{ID: "s1", URL: "https://devin.test/sessions/s1", Title: "Fix IR-7158", Status: "running", StatusDetail: "working", UpdatedAt: fixedNow.Add(-2 * time.Minute).Unix(),
 				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23601", State: "open"}}},
-			{ID: "s2", Title: "Add SCIM phone normalisation", Status: "running", StatusDetail: "waiting_for_user", UpdatedAt: fixedNow.Add(-18 * time.Minute).Unix(),
-				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23588", State: "open"}}},
-			{ID: "s3", Title: "Bump herdr config", Status: "exit", UpdatedAt: fixedNow.Add(-3 * time.Hour).Unix(),
+			{ID: "s2", URL: "https://devin.test/sessions/s2", Title: "Add SCIM phone normalisation", Status: "running", StatusDetail: "waiting_for_user", UpdatedAt: fixedNow.Add(-18 * time.Minute).Unix(),
+				PullRequests: []devin.PullRequest{
+					{URL: "https://github.com/rootlyhq/rootly/pull/23588", State: "open"},
+					{URL: "https://github.com/rootlyhq/terraform-rootly/pull/1550", State: "merged"},
+				}},
+			{ID: "s3", URL: "https://devin.test/sessions/s3", Title: "Bump herdr config", Status: "exit", UpdatedAt: fixedNow.Add(-3 * time.Hour).Unix(),
 				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23540", State: "merged"}}},
-			{ID: "s4", Title: "Investigate flaky alert spec", Status: "error", UpdatedAt: fixedNow.Add(-26 * time.Hour).Unix(),
+			{ID: "s4", URL: "https://devin.test/sessions/s4", Title: "Investigate flaky alert spec", Status: "error", UpdatedAt: fixedNow.Add(-26 * time.Hour).Unix(),
 				PullRequests: []devin.PullRequest{{URL: "https://github.com/rootlyhq/rootly/pull/23500", State: "open"}}},
-			{ID: "s5", Title: "Idle research", Status: "suspended", StatusDetail: "inactivity", UpdatedAt: fixedNow.Add(-50 * time.Hour).Unix()},
+			{ID: "s5", URL: "https://devin.test/sessions/s5", Title: "Idle research", Status: "suspended", StatusDetail: "inactivity", UpdatedAt: fixedNow.Add(-50 * time.Hour).Unix()},
 		},
 		Statuses: map[string]github.PRStatus{
 			"https://github.com/rootlyhq/rootly/pull/23601": {Number: 23601, State: "OPEN", CI: github.CIPassing, Review: "REVIEW_REQUIRED"},
@@ -39,19 +42,24 @@ func goldenData() Data {
 	}
 }
 
-func TestViewGolden(t *testing.T) {
+func render(t *testing.T, data Data, width, height int) Model {
+	t.Helper()
 	lipgloss.SetColorProfile(termenv.Ascii)
-	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: goldenData()})
+	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: data})
 	m.refreshedAt = fixedNow.Add(-12 * time.Second)
-	m, _ = update(t, m, tea.WindowSizeMsg{Width: 80, Height: 40})
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: width, Height: height})
+	return m
+}
 
-	got := m.View()
+func viewLines(m Model) []string {
+	return strings.Split(strings.TrimSuffix(m.View(), "\n"), "\n")
+}
+
+func TestViewGolden(t *testing.T) {
+	got := render(t, goldenData(), 100, 0).View()
 
 	path := filepath.Join("testdata", "board.golden")
 	if *updateGolden {
-		if err := os.MkdirAll("testdata", 0o755); err != nil {
-			t.Fatal(err)
-		}
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -65,20 +73,118 @@ func TestViewGolden(t *testing.T) {
 	}
 }
 
-func TestViewShowsErrorBannerAndUnknownPR(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.Ascii)
+func TestTableHasColumnHeadersAndOneRowPerSession(t *testing.T) {
+	lines := viewLines(render(t, goldenData(), 120, 0))
+
+	header := -1
+	for i, l := range lines {
+		if strings.HasPrefix(l, "STATUS") {
+			header = i
+		}
+	}
+	if header < 0 {
+		t.Fatalf("no header row:\n%s", strings.Join(lines, "\n"))
+	}
+	for _, col := range []string{"SESSION", "REPO", "PR", "CI", "REVIEW", "UPDATED"} {
+		if !strings.Contains(lines[header], col) {
+			t.Fatalf("header missing %s: %q", col, lines[header])
+		}
+	}
+	rows := lines[header+2 : header+2+5]
+	for _, title := range []string{"Add SCIM phone normalisation", "Fix IR-7158", "Bump herdr config", "Investigate flaky alert spec", "Idle research"} {
+		found := false
+		for _, r := range rows {
+			found = found || strings.Contains(r, title)
+		}
+		if !found {
+			t.Fatalf("no row for %q in:\n%s", title, strings.Join(rows, "\n"))
+		}
+	}
+}
+
+func TestColumnsAlignAcrossRows(t *testing.T) {
+	lines := viewLines(render(t, goldenData(), 120, 0))
+
+	column := func(l, header string) int { return ansi.StringWidth(l[:strings.Index(l, header)]) }
+	var headerLine string
+	for _, l := range lines {
+		if strings.HasPrefix(l, "STATUS") {
+			headerLine = l
+		}
+	}
+	prColumn := column(headerLine, "  PR ") + 2
+	for _, l := range lines {
+		if i := strings.Index(l, "#23"); i >= 0 && !strings.Contains(l, "github.com") && !strings.Contains(l, "rootlyhq/") {
+			if got := ansi.StringWidth(l[:i]); got != prColumn {
+				t.Fatalf("PR cell at column %d, header at %d: %q", got, prColumn, l)
+			}
+		}
+	}
+}
+
+func TestDetailPanelShowsSelectedSessionAndAllItsPRs(t *testing.T) {
+	view := render(t, goldenData(), 120, 0).View()
+
+	for _, want := range []string{
+		"https://devin.test/sessions/s2",
+		"waiting for user",
+		"https://github.com/rootlyhq/rootly/pull/23588",
+		"https://github.com/rootlyhq/terraform-rootly/pull/1550",
+	} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("detail missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestFooterIsPinnedToTheBottom(t *testing.T) {
+	lines := viewLines(render(t, goldenData(), 120, 40))
+
+	if len(lines) != 40 {
+		t.Fatalf("view has %d lines, want 40", len(lines))
+	}
+	if !strings.Contains(lines[39], "refreshed 12s ago") {
+		t.Fatalf("last line %q", lines[39])
+	}
+	if !strings.Contains(lines[38], "Enter") || !strings.Contains(lines[38], "quit") {
+		t.Fatalf("key hints line %q", lines[38])
+	}
+}
+
+func TestRowsFitTheWidth(t *testing.T) {
+	data := goldenData()
+	data.Sessions[0].Title = strings.Repeat("修正", 60)
+	for _, width := range []int{60, 100, 200} {
+		for _, l := range viewLines(render(t, data, width, 0)) {
+			if strings.Contains(l, "github.com") || strings.Contains(l, "devin.test") {
+				continue
+			}
+			if w := ansi.StringWidth(l); w > width {
+				t.Fatalf("width %d: line is %d columns: %q", width, w, l)
+			}
+		}
+	}
+}
+
+func TestErrorShowsInStatusLine(t *testing.T) {
+	m := render(t, goldenData(), 120, 30)
+	m, _ = update(t, m, actionErrMsg{err: errorString("Devin API 403 — run `devin auth login`")})
+
+	lines := viewLines(m)
+
+	if !strings.Contains(lines[len(lines)-1], "Devin API 403") {
+		t.Fatalf("last line %q", lines[len(lines)-1])
+	}
+}
+
+func TestUnknownPRStatusShowsQuestionMark(t *testing.T) {
 	data := goldenData()
 	delete(data.Statuses, "https://github.com/rootlyhq/rootly/pull/23601")
-	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: data})
-	m, _ = update(t, m, actionErrMsg{err: errorString("Devin API 401 — run `devin auth login`")})
 
-	view := m.View()
-
-	if !strings.Contains(view, "Devin API 401") {
-		t.Fatalf("missing banner:\n%s", view)
-	}
-	if !strings.Contains(view, "#23601   rootly  open    ? ?") {
-		t.Fatalf("missing unknown PR row:\n%s", view)
+	for _, l := range viewLines(render(t, data, 120, 0)) {
+		if strings.Contains(l, "Fix IR-7158") && !strings.Contains(l, "?") {
+			t.Fatalf("expected ? for unknown CI: %q", l)
+		}
 	}
 }
 
@@ -93,64 +199,3 @@ func TestViewEmptyState(t *testing.T) {
 type errorString string
 
 func (e errorString) Error() string { return string(e) }
-
-func TestHeaderNamesBoardAndCount(t *testing.T) {
-	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: fixtureData()})
-
-	if !strings.HasPrefix(m.View(), "Devin Sessions · 1 · refreshed") {
-		t.Fatalf("view:\n%s", m.View())
-	}
-}
-
-func goldenLines(t *testing.T, width int) []string {
-	t.Helper()
-	lipgloss.SetColorProfile(termenv.Ascii)
-	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: goldenData()})
-	m, _ = update(t, m, tea.WindowSizeMsg{Width: width, Height: 40})
-	return strings.Split(m.View(), "\n")
-}
-
-func TestSessionRowsStayCompactOnWidePanes(t *testing.T) {
-	for _, l := range goldenLines(t, 200) {
-		if strings.Contains(l, "Fix IR-7158") && ansi.StringWidth(l) > 60 {
-			t.Fatalf("row stretched to %d columns: %q", ansi.StringWidth(l), l)
-		}
-	}
-}
-
-func TestPRColumnsAlignUnderTitles(t *testing.T) {
-	var titleColumn int
-	var prColumns []int
-	for _, l := range goldenLines(t, 80) {
-		if i := strings.Index(l, "Fix IR-7158"); i >= 0 {
-			titleColumn = ansi.StringWidth(l[:i])
-		}
-		if i := strings.Index(l, "#"); i >= 0 {
-			prColumns = append(prColumns, ansi.StringWidth(l[:i]))
-			state := strings.Index(l, "rootly  ")
-			if state < 0 {
-				t.Fatalf("repo column not padded: %q", l)
-			}
-		}
-	}
-	if len(prColumns) == 0 {
-		t.Fatal("no PR rows")
-	}
-	for _, c := range prColumns {
-		if c != titleColumn {
-			t.Fatalf("PR row starts at %d, titles at %d", c, titleColumn)
-		}
-	}
-}
-
-func TestTitlesTruncateByDisplayWidth(t *testing.T) {
-	data := Data{Sessions: []devin.Session{{ID: "w", Title: strings.Repeat("修正", 40), Status: "running", UpdatedAt: fixedNow.Unix()}}}
-	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: data})
-	m, _ = update(t, m, tea.WindowSizeMsg{Width: 50, Height: 20})
-
-	for _, l := range strings.Split(m.View(), "\n") {
-		if strings.Contains(l, "修正") && ansi.StringWidth(l) > 50 {
-			t.Fatalf("wide title overflows: %d columns", ansi.StringWidth(l))
-		}
-	}
-}

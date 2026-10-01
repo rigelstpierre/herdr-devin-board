@@ -21,9 +21,10 @@ Then run the **Open Devin board** action.
 
 | Key | Action |
 |---|---|
-| `j`/`k`, `↑`/`↓` | Move |
-| `enter` | Open the session (or the PR on a PR row) in the browser |
+| `j`/`k`, `↑`/`↓` | Move between sessions |
+| `enter` | Open the session in the browser |
 | `p` | Open the session's first PR |
+| `1`–`9` | Open the session's nth PR (listed in the detail panel) |
 | `s` | `devin ssh` into the session in a new pane |
 | `a` | Show all (include finished, and suspended without an open PR, older than 7 days) |
 | `r` | Refresh now (auto-refreshes every 30s) |

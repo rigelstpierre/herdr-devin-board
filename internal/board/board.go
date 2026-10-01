@@ -36,6 +36,7 @@ type Session struct {
 	URL       string
 	Title     string
 	Kind      Kind
+	Detail    string
 	UpdatedAt time.Time
 	PRs       []PR
 }
@@ -74,6 +75,7 @@ func Build(sessions []devin.Session, statuses map[string]github.PRStatus, opts O
 			URL:       s.URL,
 			Title:     titleOrPlaceholder(s.Title),
 			Kind:      kind,
+			Detail:    s.StatusDetail,
 			UpdatedAt: updated,
 			PRs:       buildPRs(s.PullRequests, statuses),
 		})

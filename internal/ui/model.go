@@ -57,16 +57,6 @@ type actionErrMsg struct {
 	err error
 }
 
-type line struct {
-	session int
-	pr      int
-}
-
-type selection struct {
-	sessionID string
-	pr        int
-}
-
 func New(deps Deps) Model {
 	if deps.Interval <= 0 {
 		deps.Interval = defaultInterval
@@ -85,14 +75,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.err = msg.err
 		} else {
-			previous, hadSelection := m.selection()
+			previous, hadSelection := m.selected()
 			m.err = nil
 			m.data = msg.data
 			m.loaded = true
 			m.refreshedAt = m.deps.Now()
 			m.builtAt = m.refreshedAt
 			if hadSelection {
-				m.restoreSelection(previous)
+				m.restoreSelection(previous.ID)
 			}
 		}
 		m.settle()
@@ -142,6 +132,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openFirstPR()
 	case "s":
 		return m, m.sshSelected()
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		return m, m.openPR(int(msg.Runes[0] - '1'))
 	}
 	return m, nil
 }
@@ -154,19 +146,8 @@ func (m Model) sessions() []board.Session {
 	})
 }
 
-func flatten(sessions []board.Session) []line {
-	var lines []line
-	for i, s := range sessions {
-		lines = append(lines, line{session: i, pr: -1})
-		for j := range s.PRs {
-			lines = append(lines, line{session: i, pr: j})
-		}
-	}
-	return lines
-}
-
 func (m *Model) settle() {
-	count := len(flatten(m.sessions()))
+	count := len(m.sessions())
 	m.cursor = min(m.cursor, count-1)
 	m.cursor = max(m.cursor, 0)
 	rows := m.visibleRows()
@@ -183,35 +164,20 @@ func (m Model) visibleRows() int {
 	if m.height == 0 {
 		return math.MaxInt32
 	}
-	chrome := 4
-	if m.err != nil {
-		chrome++
-	}
-	if !m.loaded || len(m.sessions()) == 0 {
-		chrome++
-	}
-	return max(m.height-chrome, 1)
+	return max(m.height-chromeHeight, 1)
 }
 
-func (m Model) selected() (board.Session, line, bool) {
+func (m Model) selected() (board.Session, bool) {
 	sessions := m.sessions()
-	lines := flatten(sessions)
-	if m.cursor < 0 || m.cursor >= len(lines) {
-		return board.Session{}, line{}, false
+	if m.cursor < 0 || m.cursor >= len(sessions) {
+		return board.Session{}, false
 	}
-	l := lines[m.cursor]
-	return sessions[l.session], l, true
+	return sessions[m.cursor], true
 }
 
-func (m Model) selection() (selection, bool) {
-	session, l, ok := m.selected()
-	return selection{sessionID: session.ID, pr: l.pr}, ok
-}
-
-func (m *Model) restoreSelection(previous selection) {
-	sessions := m.sessions()
-	for i, l := range flatten(sessions) {
-		if sessions[l.session].ID == previous.sessionID && l.pr == previous.pr {
+func (m *Model) restoreSelection(sessionID string) {
+	for i, s := range m.sessions() {
+		if s.ID == sessionID {
 			m.cursor = i
 			return
 		}
@@ -219,26 +185,27 @@ func (m *Model) restoreSelection(previous selection) {
 }
 
 func (m Model) openSelected() tea.Cmd {
-	session, l, ok := m.selected()
+	session, ok := m.selected()
 	if !ok {
 		return nil
-	}
-	if l.pr >= 0 {
-		return m.action(func() error { return m.deps.OpenURL(session.PRs[l.pr].URL) })
 	}
 	return m.action(func() error { return m.deps.OpenURL(session.URL) })
 }
 
 func (m Model) openFirstPR() tea.Cmd {
-	session, _, ok := m.selected()
-	if !ok || len(session.PRs) == 0 {
+	return m.openPR(0)
+}
+
+func (m Model) openPR(index int) tea.Cmd {
+	session, ok := m.selected()
+	if !ok || index >= len(session.PRs) {
 		return nil
 	}
-	return m.action(func() error { return m.deps.OpenURL(session.PRs[0].URL) })
+	return m.action(func() error { return m.deps.OpenURL(session.PRs[index].URL) })
 }
 
 func (m Model) sshSelected() tea.Cmd {
-	session, _, ok := m.selected()
+	session, ok := m.selected()
 	if !ok {
 		return nil
 	}
