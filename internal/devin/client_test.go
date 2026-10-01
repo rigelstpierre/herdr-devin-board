@@ -113,3 +113,29 @@ func TestUnauthorizedTellsUserToLogIn(t *testing.T) {
 		t.Fatalf("message %q", err.Error())
 	}
 }
+
+func TestSelfRejectsIncompleteIdentity(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"user_id":"user-1"}`)
+	}))
+	defer srv.Close()
+
+	_, err := newClient(srv).Self(context.Background())
+
+	if err == nil || !strings.Contains(err.Error(), "devin_sessions_org_id") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDecodeErrorNamesTheEndpoint(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `not json`)
+	}))
+	defer srv.Close()
+
+	_, err := newClient(srv).Self(context.Background())
+
+	if err == nil || !strings.Contains(err.Error(), "/v3/self") {
+		t.Fatalf("got %v", err)
+	}
+}

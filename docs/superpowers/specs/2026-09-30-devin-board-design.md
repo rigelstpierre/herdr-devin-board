@@ -64,7 +64,7 @@ herdr action "Open Devin board" ─► tab pane runs bin/run ─► herdr-devin-
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| `internal/devin` | Credential loading (`DEVIN_API_KEY` env overrides the file), `Self()`, `ListMySessions()` with pagination | `net/http`, `go-toml` |
+| `internal/devin` | Credential loading (`DEVIN_API_KEY` env overrides the file), `Self()`, `ListSessions()` with pagination | `net/http`, `go-toml` |
 | `internal/github` | `PRStatus(ctx, url)` via `gh pr view`; command runner is injectable | `os/exec` |
 | `internal/board` | Pure: filter, sort, classify status, build rows | nothing external |
 | `internal/ui` | Bubble Tea model, refresh loop, keybindings, rendering | `bubbletea`, `lipgloss` |

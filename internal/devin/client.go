@@ -3,6 +3,7 @@ package devin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -54,8 +55,13 @@ func (e *APIError) Error() string {
 
 func (c *Client) Self(ctx context.Context) (Self, error) {
 	var self Self
-	err := c.get(ctx, "/v3/self", nil, &self)
-	return self, err
+	if err := c.get(ctx, "/v3/self", nil, &self); err != nil {
+		return Self{}, err
+	}
+	if self.UserID == "" || self.SessionsOrgID == "" {
+		return Self{}, errors.New("Devin /v3/self response is missing user_id or devin_sessions_org_id")
+	}
+	return self, nil
 }
 
 func (c *Client) ListSessions(ctx context.Context, self Self) ([]Session, error) {
@@ -103,5 +109,8 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return &APIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("decode Devin %s: %w", path, err)
+	}
+	return nil
 }
