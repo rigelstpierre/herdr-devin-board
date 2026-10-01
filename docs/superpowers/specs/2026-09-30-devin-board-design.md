@@ -68,13 +68,13 @@ herdr action "Open Devin board" ─► tab pane runs bin/run ─► herdr-devin-
 | `internal/github` | `PRStatus(ctx, url)` via `gh pr view`; command runner is injectable | `os/exec` |
 | `internal/board` | Pure: filter, sort, classify status, build rows | nothing external |
 | `internal/ui` | Bubble Tea model, refresh loop, keybindings, rendering | `bubbletea`, `lipgloss` |
-| `cmd/herdr-devin-board` | Flag parsing (`--plugin-action run|open`), wiring | all of the above |
+| `cmd/herdr-devin-board` | Wiring and the cached Devin loader | all of the above |
 
 ### Plugin manifest
 
 - `[[build]]` macOS/Linux: `go build -o bin/herdr-devin-board ./cmd/herdr-devin-board`.
 - `[[actions]] id="open"`, title "Open Devin board", context `workspace`;
-  opens the tab pane.
+  runs `herdr plugin pane open --plugin $HERDR_PLUGIN_ID --entrypoint board`.
 - `[[panes]] id="board"`, placement `tab`, command `["bash", "bin/run"]`
   (herdr 0.8+ on Unix resolves pane commands via PATH, hence the wrapper).
 - macOS and Linux only.
