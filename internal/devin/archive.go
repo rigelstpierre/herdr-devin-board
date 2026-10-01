@@ -37,7 +37,19 @@ func (c *Client) Archive(ctx context.Context, orgID, sessionID string) error {
 	err := c.do(ctx, http.MethodPost, path, nil, nil)
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.IsAuth() {
-		return fmt.Errorf("Devin API key can't archive (HTTP %d) — it needs a v3 service user key, not a legacy apk_ key; see the README: %w", apiErr.StatusCode, apiErr)
+		return &ArchiveAuthError{Err: apiErr}
 	}
 	return err
+}
+
+type ArchiveAuthError struct {
+	Err *APIError
+}
+
+func (e *ArchiveAuthError) Error() string {
+	return fmt.Sprintf("Devin API key can't archive (HTTP %d) — it needs a v3 service user key, not a legacy apk_ key; see the README", e.Err.StatusCode)
+}
+
+func (e *ArchiveAuthError) Unwrap() error {
+	return e.Err
 }
