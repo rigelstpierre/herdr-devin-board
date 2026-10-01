@@ -22,12 +22,15 @@ func main() {
 		os.Exit(1)
 	}
 	svc := newService(credentialsPath, archiveKeyPath(), github.NewClient(github.GHRunner))
-	h := host.New(host.ExecRunner, runtime.GOOS, os.Getenv("HERDR_PANE_ID"), os.Getenv("HERDR_BIN_PATH"))
+	h := host.New(host.ExecRunner, runtime.GOOS, os.Getenv("HERDR_PANE_ID"), os.Getenv("HERDR_BIN_PATH")).
+		InWorkspace(os.Getenv("HERDR_WORKSPACE_ID")).
+		InDirectory(workspaceDir(os.Getenv("HERDR_PLUGIN_CONTEXT_JSON")))
 	model := ui.New(ui.Deps{
 		Load:    svc.Load,
 		Archive: svc.Archive,
 		OpenURL: h.OpenURL,
 		SSH:     h.SSH,
+		Attach:  h.Attach,
 		Now:     time.Now,
 	})
 	if _, err := tea.NewProgram(model, tea.WithAltScreen()).Run(); err != nil {

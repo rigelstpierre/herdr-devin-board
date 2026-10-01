@@ -27,6 +27,7 @@ type Deps struct {
 	Load     func(context.Context) (Data, error)
 	OpenURL  func(string) error
 	SSH      func(string) error
+	Attach   func(sessionID, title string) error
 	Archive  func(context.Context, string) error
 	Now      func() time.Time
 	Interval time.Duration
@@ -149,6 +150,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.load()
 		}
 	case "enter":
+		return m, m.attachSelected()
+	case "o":
 		return m, m.openSelected()
 	case "p":
 		return m, m.openFirstPR()
@@ -216,6 +219,14 @@ func (m Model) openSelected() tea.Cmd {
 		return nil
 	}
 	return m.action(func() error { return m.deps.OpenURL(session.URL) })
+}
+
+func (m Model) attachSelected() tea.Cmd {
+	session, ok := m.selected()
+	if !ok {
+		return nil
+	}
+	return m.action(func() error { return m.deps.Attach(session.ID, session.Title) })
 }
 
 func (m Model) openFirstPR() tea.Cmd {

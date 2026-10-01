@@ -22,7 +22,8 @@ Then run the **Open Devin board** action.
 | Key | Action |
 |---|---|
 | `j`/`k`, `↑`/`↓` | Move between sessions |
-| `enter` | Open the session in the browser |
+| `enter` | Attach to the session in a new herdr tab (`devin --cloud --resume`); focuses it if already open |
+| `o` | Open the session in the browser |
 | `p` | Open the session's first PR |
 | `1`–`9` | Open the session's nth PR (listed in the detail panel) |
 | `s` | `devin ssh` into the session in a new pane |

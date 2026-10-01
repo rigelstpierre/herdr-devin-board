@@ -25,6 +25,7 @@ func fixtureData() Data {
 
 type spy struct {
 	opened     []string
+	attached   []string
 	sshed      []string
 	archived   []string
 	archiveErr error
@@ -39,6 +40,10 @@ func newTestModel(s *spy) Model {
 		},
 		OpenURL: func(u string) error { s.opened = append(s.opened, u); return nil },
 		SSH:     func(id string) error { s.sshed = append(s.sshed, id); return nil },
+		Attach: func(id, title string) error {
+			s.attached = append(s.attached, id+":"+title)
+			return nil
+		},
 		Archive: func(_ context.Context, id string) error {
 			s.archived = append(s.archived, id)
 			return s.archiveErr
@@ -82,7 +87,7 @@ func TestLoadedDataHidesOldFinishedUntilShowAll(t *testing.T) {
 	}
 }
 
-func TestEnterOpensSessionAndDownMovesToNextSession(t *testing.T) {
+func TestEnterAttachesInATabAndDownMovesToNextSession(t *testing.T) {
 	s := &spy{}
 	m := loaded(t, s)
 	m, _ = update(t, m, key("a"))
@@ -93,9 +98,24 @@ func TestEnterOpensSessionAndDownMovesToNextSession(t *testing.T) {
 	_, cmd = update(t, m, key("enter"))
 	run(t, cmd)
 
-	want := []string{"https://devin.test/sessions/s1", "https://devin.test/sessions/s2"}
-	if len(s.opened) != 2 || s.opened[0] != want[0] || s.opened[1] != want[1] {
-		t.Fatalf("opened %v", s.opened)
+	want := []string{"s1:Fix IR-7158", "s2:Old work"}
+	if len(s.attached) != 2 || s.attached[0] != want[0] || s.attached[1] != want[1] {
+		t.Fatalf("attached %v", s.attached)
+	}
+	if len(s.opened) != 0 {
+		t.Fatalf("enter must not open the browser: %v", s.opened)
+	}
+}
+
+func TestOOpensTheSessionInTheBrowser(t *testing.T) {
+	s := &spy{}
+	m := loaded(t, s)
+
+	_, cmd := update(t, m, key("o"))
+	run(t, cmd)
+
+	if len(s.opened) != 1 || s.opened[0] != "https://devin.test/sessions/s1" || len(s.attached) != 0 {
+		t.Fatalf("opened %v attached %v", s.opened, s.attached)
 	}
 }
 

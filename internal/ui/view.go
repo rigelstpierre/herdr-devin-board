@@ -48,7 +48,7 @@ var (
 		board.Errored:   styleRed,
 	}
 	keyHints = [][2]string{
-		{"Enter", "open"}, {"↑↓", "select"}, {"p", "PR"}, {"1-9", "nth PR"},
+		{"Enter", "tab"}, {"o", "web"}, {"↑↓", "select"}, {"p", "PR"}, {"1-9", "nth PR"},
 		{"s", "ssh"}, {"x", "archive"}, {"a", "all"}, {"r", "refresh"}, {"q", "quit"},
 	}
 )
