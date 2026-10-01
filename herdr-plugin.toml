@@ -13,7 +13,7 @@ command = ["go", "build", "-o", "bin/herdr-devin-board", "./cmd/herdr-devin-boar
 id = "open"
 title = "Open Devin board"
 contexts = ["workspace"]
-command = ["bash", "-c", "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin \"${HERDR_PLUGIN_ID:-rigelstpierre.devin-board}\" --entrypoint board --focus"]
+command = ["bash", "bin/open"]
 
 [[panes]]
 id = "board"

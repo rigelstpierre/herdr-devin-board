@@ -4,4 +4,7 @@ root="${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 if [[ -n "${HERDR_TAB_ID:-}" ]]; then
   "${HERDR_BIN_PATH:-herdr}" tab rename "$HERDR_TAB_ID" "Devin Sessions" >/dev/null 2>&1 || true
 fi
+if [[ -n "${HERDR_PANE_ID:-}" && -n "${HERDR_PLUGIN_STATE_DIR:-}" ]]; then
+  mkdir -p "$HERDR_PLUGIN_STATE_DIR" && printf '%s\n' "$HERDR_PANE_ID" > "$HERDR_PLUGIN_STATE_DIR/board-pane" || true
+fi
 exec "$root/bin/herdr-devin-board"

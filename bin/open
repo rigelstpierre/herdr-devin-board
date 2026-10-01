@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+herdr="${HERDR_BIN_PATH:-herdr}"
+state="${HERDR_PLUGIN_STATE_DIR:-}"
+if [[ -n "$state" && -s "$state/board-pane" ]]; then
+  if "$herdr" plugin pane focus "$(<"$state/board-pane")" >/dev/null 2>&1; then
+    exit 0
+  fi
+fi
+exec "$herdr" plugin pane open --plugin "${HERDR_PLUGIN_ID:-rigelstpierre.devin-board}" --entrypoint board --focus

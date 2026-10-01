@@ -38,7 +38,17 @@ Tested with Devin Enterprise on macOS. It should work with regular `app.devin.ai
 herdr plugin install rigelstpierre/herdr-devin-board
 ```
 
-Then run the **Open Devin board** action. The board opens in a tab named **Devin Sessions**.
+Then run the **Open Devin board** action. The board opens in a tab named **Devin Sessions**; running the action again switches to that tab instead of opening another.
+
+To open it with a key, add this to `~/.config/herdr/config.toml` and run `herdr server reload-config`:
+
+```toml
+[[keys.command]]
+key = "prefix+d"
+type = "plugin_action"
+command = "rigelstpierre.devin-board.open"
+description = "open Devin board"
+```
 
 ## What it shows
 
