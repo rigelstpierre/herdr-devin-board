@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/rigelstpierre/herdr-devin-board/internal/board"
@@ -15,9 +17,19 @@ import (
 const ghParallelism = 4
 
 func newLoader(credentialsPath string, gh *github.Client) func(context.Context) (ui.Data, error) {
+	var mu sync.Mutex
 	var client *devin.Client
 	var self *devin.Self
+	forgetOnAuthFailure := func(err error) error {
+		var apiErr *devin.APIError
+		if errors.As(err, &apiErr) && apiErr.IsAuth() {
+			client, self = nil, nil
+		}
+		return err
+	}
 	return func(ctx context.Context) (ui.Data, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		if client == nil {
 			creds, err := devin.LoadCredentials(credentialsPath, os.Getenv)
 			if err != nil {
@@ -28,13 +40,13 @@ func newLoader(credentialsPath string, gh *github.Client) func(context.Context) 
 		if self == nil {
 			fetched, err := client.Self(ctx)
 			if err != nil {
-				return ui.Data{}, err
+				return ui.Data{}, forgetOnAuthFailure(err)
 			}
 			self = &fetched
 		}
 		sessions, err := client.ListSessions(ctx, *self)
 		if err != nil {
-			return ui.Data{}, err
+			return ui.Data{}, forgetOnAuthFailure(err)
 		}
 		return ui.Data{
 			Sessions: sessions,

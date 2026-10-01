@@ -131,8 +131,10 @@ Merged and closed PRs use Devin's `pr_state` and skip the `gh` call.
   a time; a manual refresh during an in-flight one is ignored.
 - A failed refresh keeps the last good snapshot and shows a red header banner
   with the cause (e.g. `Devin API 401 — run devin auth login`).
-- Missing or unreadable credentials: an empty state that says to run
-  `devin auth login`.
+- Missing or unreadable credentials: the red banner says to run
+  `devin auth login`. Credentials are re-read on every refresh until they
+  load, and again after any 401/403, so logging in recovers without
+  reopening the tab.
 - `gh` missing, unauthenticated, or a single lookup failing: the PR row falls
   back to Devin's `pr_state` with a dim `?` in the CI and review columns.
   A GitHub failure never hides a session.

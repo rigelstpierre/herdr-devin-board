@@ -46,8 +46,12 @@ type APIError struct {
 	Body       string
 }
 
+func (e *APIError) IsAuth() bool {
+	return e.StatusCode == http.StatusUnauthorized || e.StatusCode == http.StatusForbidden
+}
+
 func (e *APIError) Error() string {
-	if e.StatusCode == http.StatusUnauthorized || e.StatusCode == http.StatusForbidden {
+	if e.IsAuth() {
 		return fmt.Sprintf("Devin API %d — run `devin auth login` (or check DEVIN_API_KEY)", e.StatusCode)
 	}
 	return fmt.Sprintf("Devin API %d: %s", e.StatusCode, e.Body)
@@ -102,7 +106,11 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("Devin API: %w", err)
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			err = urlErr.Err
+		}
+		return fmt.Errorf("Devin API %s: %w", path, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
