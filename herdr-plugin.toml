@@ -17,6 +17,6 @@ command = ["bash", "-c", "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --p
 
 [[panes]]
 id = "board"
-title = "Devin"
+title = "Devin Sessions"
 placement = "tab"
 command = ["bash", "bin/run"]

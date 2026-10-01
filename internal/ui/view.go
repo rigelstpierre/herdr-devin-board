@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rigelstpierre/herdr-devin-board/internal/board"
 	"github.com/rigelstpierre/herdr-devin-board/internal/github"
@@ -13,21 +14,31 @@ import (
 
 const (
 	defaultWidth  = 80
+	cursorWidth   = 2
 	statusWidth   = 11
+	ageWidth      = 3
+	gap           = "  "
 	minTitleWidth = 10
-	footer        = "[enter] open  [p] open PR  [s] ssh  [a] show all  [r] refresh  [q] quit"
+	prNumberWidth = 7
+	prStateWidth  = 6
+	footer        = "enter open · p PR · s ssh · a all · r refresh · q quit"
 )
+
+var titleColumn = cursorWidth + statusWidth + len(gap) + ageWidth + len(gap)
 
 var (
 	styleHeader = lipgloss.NewStyle().Bold(true)
 	styleError  = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Bold(true)
 	styleDim    = lipgloss.NewStyle().Faint(true)
+	styleGreen  = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	styleYellow = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	styleRed    = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	kindStyles  = map[board.Kind]lipgloss.Style{
-		board.Running:   lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
-		board.Waiting:   lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true),
+		board.Running:   styleGreen,
+		board.Waiting:   styleYellow.Bold(true),
 		board.Suspended: styleDim,
 		board.Finished:  styleDim,
-		board.Errored:   lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
+		board.Errored:   styleRed,
 	}
 )
 
@@ -46,6 +57,7 @@ func (m Model) View() string {
 		b.WriteString(styleDim.Render(emptyText(m.showAll)) + "\n")
 	}
 	lines := flatten(sessions)
+	repoWidth := widestRepo(sessions)
 	end := min(len(lines), m.offset+m.visibleRows())
 	for i := m.offset; i < end; i++ {
 		l := lines[i]
@@ -57,7 +69,7 @@ func (m Model) View() string {
 		if l.pr < 0 {
 			b.WriteString(prefix + m.sessionLine(session) + "\n")
 		} else {
-			b.WriteString(prefix + prLine(session.PRs[l.pr]) + "\n")
+			b.WriteString(prefix + prLine(session.PRs[l.pr], repoWidth) + "\n")
 		}
 	}
 	b.WriteString("\n" + styleDim.Render(footer) + "\n")
@@ -65,7 +77,7 @@ func (m Model) View() string {
 }
 
 func (m Model) header(count int) string {
-	parts := []string{"Devin Cloud", pluralize(count, "session")}
+	parts := []string{"Devin Sessions", fmt.Sprint(count)}
 	if m.loaded {
 		parts = append(parts, "refreshed "+relative(m.deps.Now(), m.refreshedAt))
 	}
@@ -83,18 +95,44 @@ func (m Model) sessionLine(s board.Session) string {
 	if width == 0 {
 		width = defaultWidth
 	}
-	ago := relative(m.deps.Now(), s.UpdatedAt)
-	titleWidth := max(width-2-statusWidth-2-2-len(ago), minTitleWidth)
+	titleWidth := max(width-titleColumn, minTitleWidth)
 	status := kindStyles[s.Kind].Render(fmt.Sprintf("%-*s", statusWidth, kindLabel(s.Kind)))
-	return fmt.Sprintf("%s  %-*s  %s", status, titleWidth, truncate(s.Title, titleWidth), ago)
+	age := styleDim.Render(fmt.Sprintf("%*s", ageWidth, shortAge(m.deps.Now(), s.UpdatedAt)))
+	return status + gap + age + gap + ansi.Truncate(s.Title, titleWidth, "…")
 }
 
-func prLine(pr board.PR) string {
-	detail := strings.TrimSpace(ciText(pr.CI) + "  " + reviewText(pr.Review))
-	if pr.Unknown {
-		detail = styleDim.Render("? ?")
+func prLine(pr board.PR, repoWidth int) string {
+	columns := []string{
+		fmt.Sprintf("%-*s", prNumberWidth, fmt.Sprintf("#%d", pr.Number)),
+		fmt.Sprintf("%-*s", repoWidth, pr.Repo),
+		stateStyle(pr.State).Render(fmt.Sprintf("%-*s", prStateWidth, pr.State)),
 	}
-	return strings.TrimRight(fmt.Sprintf("    #%d %s  %-6s %s", pr.Number, pr.Repo, pr.State, detail), " ")
+	switch {
+	case pr.Unknown:
+		columns = append(columns, styleDim.Render("? ?"))
+	case pr.State == "open" || pr.State == "draft":
+		columns = append(columns, ciText(pr.CI), reviewText(pr.Review))
+	}
+	indent := strings.Repeat(" ", titleColumn-cursorWidth)
+	return strings.TrimRight(indent+strings.Join(columns, gap), " ")
+}
+
+func widestRepo(sessions []board.Session) int {
+	widest := 0
+	for _, s := range sessions {
+		for _, pr := range s.PRs {
+			widest = max(widest, ansi.StringWidth(pr.Repo))
+		}
+	}
+	return widest
+}
+
+func stateStyle(state string) lipgloss.Style {
+	switch state {
+	case "merged", "closed":
+		return styleDim
+	}
+	return lipgloss.NewStyle()
 }
 
 func kindLabel(k board.Kind) string {
@@ -114,23 +152,23 @@ func kindLabel(k board.Kind) string {
 func ciText(ci github.CI) string {
 	switch ci {
 	case github.CIPassing:
-		return "✓ CI"
+		return styleGreen.Render("✓") + " CI"
 	case github.CIFailing:
-		return "✗ CI"
+		return styleRed.Render("✗") + " CI"
 	case github.CIPending:
-		return "⧗ CI"
+		return styleYellow.Render("•") + " CI"
 	}
-	return ""
+	return "    "
 }
 
 func reviewText(review string) string {
 	switch review {
 	case "APPROVED":
-		return "approved"
+		return styleGreen.Render("approved")
 	case "CHANGES_REQUESTED":
-		return "changes requested"
+		return styleRed.Render("changes requested")
 	case "REVIEW_REQUIRED":
-		return "review required"
+		return styleDim.Render("review required")
 	}
 	return ""
 }
@@ -139,7 +177,7 @@ func emptyText(showAll bool) string {
 	if showAll {
 		return "No sessions."
 	}
-	return "No sessions in the last 7 days. [a] show all"
+	return "No sessions in the last 7 days · press a to show all"
 }
 
 func relative(now, t time.Time) string {
@@ -157,17 +195,15 @@ func relative(now, t time.Time) string {
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 }
 
-func truncate(s string, width int) string {
-	runes := []rune(s)
-	if len(runes) <= width {
-		return s
+func shortAge(now, t time.Time) string {
+	d := now.Sub(t)
+	switch {
+	case d < time.Minute:
+		return "now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
 	}
-	return string(runes[:width-1]) + "…"
-}
-
-func pluralize(count int, noun string) string {
-	if count == 1 {
-		return fmt.Sprintf("%d %s", count, noun)
-	}
-	return fmt.Sprintf("%d %ss", count, noun)
+	return fmt.Sprintf("%dd", int(d.Hours()/24))
 }

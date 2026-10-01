@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+if [[ -n "${HERDR_TAB_ID:-}" ]]; then
+  "${HERDR_BIN_PATH:-herdr}" tab rename "$HERDR_TAB_ID" "Devin Sessions" >/dev/null 2>&1 || true
+fi
 exec "$root/bin/herdr-devin-board"

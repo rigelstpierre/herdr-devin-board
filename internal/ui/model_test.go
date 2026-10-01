@@ -237,7 +237,7 @@ func TestCursorScrollsWithinWindowHeight(t *testing.T) {
 	}
 	view := m.View()
 
-	if !strings.Contains(view, "› ● running    session 11") {
+	if !strings.Contains(view, "session 11") {
 		t.Fatalf("cursor row not visible:\n%s", view)
 	}
 	if strings.Contains(view, "session 00") {

@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 
 	"github.com/rigelstpierre/herdr-devin-board/internal/devin"
@@ -76,7 +77,7 @@ func TestViewShowsErrorBannerAndUnknownPR(t *testing.T) {
 	if !strings.Contains(view, "Devin API 401") {
 		t.Fatalf("missing banner:\n%s", view)
 	}
-	if !strings.Contains(view, "#23601 rootly  open   ? ?") {
+	if !strings.Contains(view, "#23601   rootly  open    ? ?") {
 		t.Fatalf("missing unknown PR row:\n%s", view)
 	}
 }
@@ -93,10 +94,63 @@ type errorString string
 
 func (e errorString) Error() string { return string(e) }
 
-func TestHeaderPluralisesSessions(t *testing.T) {
+func TestHeaderNamesBoardAndCount(t *testing.T) {
 	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: fixtureData()})
 
-	if !strings.Contains(m.View(), "Devin Cloud · 1 session ·") {
+	if !strings.HasPrefix(m.View(), "Devin Sessions · 1 · refreshed") {
 		t.Fatalf("view:\n%s", m.View())
+	}
+}
+
+func goldenLines(t *testing.T, width int) []string {
+	t.Helper()
+	lipgloss.SetColorProfile(termenv.Ascii)
+	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: goldenData()})
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: width, Height: 40})
+	return strings.Split(m.View(), "\n")
+}
+
+func TestSessionRowsStayCompactOnWidePanes(t *testing.T) {
+	for _, l := range goldenLines(t, 200) {
+		if strings.Contains(l, "Fix IR-7158") && ansi.StringWidth(l) > 60 {
+			t.Fatalf("row stretched to %d columns: %q", ansi.StringWidth(l), l)
+		}
+	}
+}
+
+func TestPRColumnsAlignUnderTitles(t *testing.T) {
+	var titleColumn int
+	var prColumns []int
+	for _, l := range goldenLines(t, 80) {
+		if i := strings.Index(l, "Fix IR-7158"); i >= 0 {
+			titleColumn = ansi.StringWidth(l[:i])
+		}
+		if i := strings.Index(l, "#"); i >= 0 {
+			prColumns = append(prColumns, ansi.StringWidth(l[:i]))
+			state := strings.Index(l, "rootly  ")
+			if state < 0 {
+				t.Fatalf("repo column not padded: %q", l)
+			}
+		}
+	}
+	if len(prColumns) == 0 {
+		t.Fatal("no PR rows")
+	}
+	for _, c := range prColumns {
+		if c != titleColumn {
+			t.Fatalf("PR row starts at %d, titles at %d", c, titleColumn)
+		}
+	}
+}
+
+func TestTitlesTruncateByDisplayWidth(t *testing.T) {
+	data := Data{Sessions: []devin.Session{{ID: "w", Title: strings.Repeat("修正", 40), Status: "running", UpdatedAt: fixedNow.Unix()}}}
+	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: data})
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 50, Height: 20})
+
+	for _, l := range strings.Split(m.View(), "\n") {
+		if strings.Contains(l, "修正") && ansi.StringWidth(l) > 50 {
+			t.Fatalf("wide title overflows: %d columns", ansi.StringWidth(l))
+		}
 	}
 }
