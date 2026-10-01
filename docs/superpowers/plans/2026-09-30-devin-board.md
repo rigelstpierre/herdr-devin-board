@@ -923,17 +923,25 @@ func TestClassify(t *testing.T) {
 	}
 }
 
-func TestBuildHidesOldFinishedUnlessShowAll(t *testing.T) {
+func TestBuildHidesStaleSessionsUnlessShowAll(t *testing.T) {
+	openPR := []devin.PullRequest{{URL: "https://github.com/o/r/pull/1", State: "open"}}
 	sessions := []devin.Session{
 		{ID: "old-finished", Status: "exit", UpdatedAt: ago(8 * 24 * time.Hour)},
+		{ID: "old-finished-open-pr", Status: "exit", UpdatedAt: ago(8 * 24 * time.Hour), PullRequests: openPR},
 		{ID: "recent-finished", Status: "exit", UpdatedAt: ago(2 * 24 * time.Hour)},
 		{ID: "old-suspended", Status: "suspended", UpdatedAt: ago(30 * 24 * time.Hour)},
+		{ID: "old-suspended-open-pr", Status: "suspended", UpdatedAt: ago(30 * 24 * time.Hour), PullRequests: openPR},
+		{ID: "recent-suspended", Status: "suspended", UpdatedAt: ago(time.Hour)},
+		{ID: "old-running", Status: "running", UpdatedAt: ago(30 * 24 * time.Hour)},
 	}
 
-	if got := ids(board.Build(sessions, nil, opts(false))); !reflect.DeepEqual(got, []string{"recent-finished", "old-suspended"}) {
-		t.Fatalf("default: %v", got)
+	got := ids(board.Build(sessions, nil, opts(false)))
+
+	want := []string{"recent-suspended", "recent-finished", "old-suspended-open-pr", "old-running"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("default: got %v want %v", got, want)
 	}
-	if got := ids(board.Build(sessions, nil, opts(true))); len(got) != 3 {
+	if got := ids(board.Build(sessions, nil, opts(true))); len(got) != len(sessions) {
 		t.Fatalf("show all: %v", got)
 	}
 }
@@ -1072,7 +1080,7 @@ func Build(sessions []devin.Session, statuses map[string]github.PRStatus, opts O
 	for _, s := range sessions {
 		kind := Classify(s.Status, s.StatusDetail)
 		updated := time.Unix(s.UpdatedAt, 0)
-		if kind == Finished && !opts.ShowAll && updated.Before(cutoff) {
+		if !opts.ShowAll && updated.Before(cutoff) && isStale(kind, s.PullRequests) {
 			continue
 		}
 		rows = append(rows, Session{
@@ -1106,6 +1114,25 @@ func OpenPRURLs(sessions []devin.Session) []string {
 		}
 	}
 	return urls
+}
+
+func isStale(kind Kind, prs []devin.PullRequest) bool {
+	switch kind {
+	case Finished:
+		return true
+	case Suspended:
+		return !hasOpenPR(prs)
+	}
+	return false
+}
+
+func hasOpenPR(prs []devin.PullRequest) bool {
+	for _, pr := range prs {
+		if pr.State == "open" {
+			return true
+		}
+	}
+	return false
 }
 
 func titleOrPlaceholder(title string) string {
@@ -2336,7 +2363,7 @@ Then run the **Open Devin board** action.
 | `enter` | Open the session (or the PR on a PR row) in the browser |
 | `p` | Open the session's first PR |
 | `s` | `devin ssh` into the session in a new pane |
-| `a` | Show all (include finished sessions older than 7 days) |
+| `a` | Show all (include finished, and suspended without an open PR, older than 7 days) |
 | `r` | Refresh now (auto-refreshes every 30s) |
 | `q` | Quit |
 

@@ -81,8 +81,10 @@ herdr action "Open Devin board" ─► tab pane runs bin/run ─► herdr-devin-
 
 ## Filtering and ordering
 
-Default view: every session that is not finished, plus finished sessions with
-`updated_at` in the last 7 days. Archived sessions are excluded server-side.
+Default view: every session updated in the last 7 days, plus older sessions
+that are still live. Older than 7 days, a session is hidden when it is
+finished, or suspended with no open PR. Running, waiting, and errored sessions
+are never hidden by age. Archived sessions are excluded server-side.
 `a` toggles "show all" (drops the 7-day window).
 
 Order: waiting sessions first, then by `updated_at` descending.
