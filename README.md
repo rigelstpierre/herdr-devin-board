@@ -33,9 +33,10 @@ Then run the **Open Devin board** action.
 
 ## Archiving
 
-Devin's archive endpoint rejects the CLI login token, so `x` needs a Devin API key with
-permission to manage sessions (create one in Devin settings → API keys; an org admin may
-need to do it on enterprise). Put it in the plugin's config dir:
+Devin's archive endpoint rejects the CLI login token, so `x` needs a **v3 service user
+key**. Legacy `apk_` keys only work on the v1 API, which has no archive endpoint. Create one
+under Settings → Devin API → Service users → Provision service user, with a role that can
+manage sessions. Put the key in the plugin's config dir:
 
 ```bash
 dir="$(herdr plugin config-dir rigelstpierre.devin-board)"

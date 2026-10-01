@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rigelstpierre/herdr-devin-board/internal/devin"
@@ -81,5 +82,23 @@ func TestLoadArchiveKey(t *testing.T) {
 	key, err := devin.LoadArchiveKey(path)
 	if err != nil || key != "apk_123" {
 		t.Fatalf("got %q, %v", key, err)
+	}
+}
+
+func TestArchiveAuthFailureExplainsTheKeyType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+	client := devin.NewClient(devin.Credentials{APIKey: "apk_legacy", APIURL: srv.URL}, srv.Client())
+
+	err := client.Archive(context.Background(), "o", "abc")
+
+	if err == nil || !strings.Contains(err.Error(), "service user") || strings.Contains(err.Error(), "devin auth login") {
+		t.Fatalf("message %q", err)
+	}
+	var apiErr *devin.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatal("should still wrap the APIError")
 	}
 }

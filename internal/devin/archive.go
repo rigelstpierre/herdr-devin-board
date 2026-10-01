@@ -34,5 +34,10 @@ func (c *Client) Archive(ctx context.Context, orgID, sessionID string) error {
 		sessionID = sessionIDPrefix + sessionID
 	}
 	path := "/v3/organizations/" + url.PathEscape(orgID) + "/sessions/" + url.PathEscape(sessionID) + "/archive"
-	return c.do(ctx, http.MethodPost, path, nil, nil)
+	err := c.do(ctx, http.MethodPost, path, nil, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.IsAuth() {
+		return fmt.Errorf("Devin API key can't archive (HTTP %d) — it needs a v3 service user key, not a legacy apk_ key; see the README: %w", apiErr.StatusCode, apiErr)
+	}
+	return err
 }
