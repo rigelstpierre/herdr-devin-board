@@ -1,6 +1,6 @@
 module github.com/rigelstpierre/herdr-devin-board
 
-go 1.27.1
+go 1.24.0
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
