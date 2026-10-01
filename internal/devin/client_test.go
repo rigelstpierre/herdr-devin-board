@@ -96,21 +96,23 @@ func TestListSessionsStopsOnRepeatedCursor(t *testing.T) {
 	}
 }
 
-func TestUnauthorizedTellsUserToLogIn(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprint(w, `{"error":"unauthorized"}`)
-	}))
-	defer srv.Close()
+func TestAuthFailuresTellUserToLogIn(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+			fmt.Fprint(w, `{"title":"Forbidden"}`)
+		}))
 
-	_, err := newClient(srv).Self(context.Background())
+		_, err := newClient(srv).Self(context.Background())
+		srv.Close()
 
-	var apiErr *devin.APIError
-	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("got %v", err)
-	}
-	if !strings.Contains(err.Error(), "devin auth login") {
-		t.Fatalf("message %q", err.Error())
+		var apiErr *devin.APIError
+		if !errors.As(err, &apiErr) || apiErr.StatusCode != status {
+			t.Fatalf("%d: got %v", status, err)
+		}
+		if !strings.Contains(err.Error(), "devin auth login") {
+			t.Fatalf("%d: message %q", status, err.Error())
+		}
 	}
 }
 

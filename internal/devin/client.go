@@ -47,8 +47,8 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	if e.StatusCode == http.StatusUnauthorized {
-		return "Devin API 401 — run `devin auth login`"
+	if e.StatusCode == http.StatusUnauthorized || e.StatusCode == http.StatusForbidden {
+		return fmt.Sprintf("Devin API %d — run `devin auth login` (or check DEVIN_API_KEY)", e.StatusCode)
 	}
 	return fmt.Sprintf("Devin API %d: %s", e.StatusCode, e.Body)
 }
