@@ -92,3 +92,11 @@ func TestViewEmptyState(t *testing.T) {
 type errorString string
 
 func (e errorString) Error() string { return string(e) }
+
+func TestHeaderPluralisesSessions(t *testing.T) {
+	m, _ := update(t, newTestModel(&spy{}), loadedMsg{data: fixtureData()})
+
+	if !strings.Contains(m.View(), "Devin Cloud · 1 session ·") {
+		t.Fatalf("view:\n%s", m.View())
+	}
+}

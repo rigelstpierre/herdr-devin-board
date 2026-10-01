@@ -45,7 +45,10 @@ func (m Model) View() string {
 	case m.loaded && len(sessions) == 0:
 		b.WriteString(styleDim.Render(emptyText(m.showAll)) + "\n")
 	}
-	for i, l := range flatten(sessions) {
+	lines := flatten(sessions)
+	end := min(len(lines), m.offset+m.visibleRows())
+	for i := m.offset; i < end; i++ {
+		l := lines[i]
 		prefix := "  "
 		if i == m.cursor {
 			prefix = "› "
@@ -62,7 +65,7 @@ func (m Model) View() string {
 }
 
 func (m Model) header(count int) string {
-	parts := []string{"Devin Cloud", fmt.Sprintf("%d sessions", count)}
+	parts := []string{"Devin Cloud", pluralize(count, "session")}
 	if m.loaded {
 		parts = append(parts, "refreshed "+relative(m.deps.Now(), m.refreshedAt))
 	}
@@ -160,4 +163,11 @@ func truncate(s string, width int) string {
 		return s
 	}
 	return string(runes[:width-1]) + "…"
+}
+
+func pluralize(count int, noun string) string {
+	if count == 1 {
+		return fmt.Sprintf("%d %s", count, noun)
+	}
+	return fmt.Sprintf("%d %ss", count, noun)
 }

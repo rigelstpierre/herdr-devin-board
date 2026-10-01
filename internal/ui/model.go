@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"math"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-	finishedWindow = 7 * 24 * time.Hour
-	loadTimeout    = 60 * time.Second
+	finishedWindow  = 7 * 24 * time.Hour
+	defaultInterval = 30 * time.Second
+	loadTimeout     = 60 * time.Second
 )
 
 type Data struct {
@@ -38,7 +40,10 @@ type Model struct {
 	showAll     bool
 	cursor      int
 	width       int
+	height      int
+	offset      int
 	refreshedAt time.Time
+	builtAt     time.Time
 }
 
 type loadedMsg struct {
@@ -57,7 +62,15 @@ type line struct {
 	pr      int
 }
 
+type selection struct {
+	sessionID string
+	pr        int
+}
+
 func New(deps Deps) Model {
+	if deps.Interval <= 0 {
+		deps.Interval = defaultInterval
+	}
 	return Model{deps: deps, loading: true}
 }
 
@@ -72,12 +85,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.err = msg.err
 		} else {
+			previous, hadSelection := m.selection()
 			m.err = nil
 			m.data = msg.data
 			m.loaded = true
 			m.refreshedAt = m.deps.Now()
+			m.builtAt = m.refreshedAt
+			if hadSelection {
+				m.restoreSelection(previous)
+			}
 		}
-		m.clampCursor()
+		m.settle()
 		return m, nil
 	case tickMsg:
 		if m.loading {
@@ -87,9 +105,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.load(), m.tick())
 	case actionErrMsg:
 		m.err = msg.err
+		m.settle()
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+		m.height = msg.Height
+		m.settle()
 		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -103,13 +124,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "j", "down":
 		m.cursor++
-		m.clampCursor()
+		m.settle()
 	case "k", "up":
 		m.cursor--
-		m.clampCursor()
+		m.settle()
 	case "a":
 		m.showAll = !m.showAll
-		m.clampCursor()
+		m.settle()
 	case "r":
 		if !m.loading {
 			m.loading = true
@@ -127,7 +148,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) sessions() []board.Session {
 	return board.Build(m.data.Sessions, m.data.Statuses, board.Options{
-		Now:     m.deps.Now(),
+		Now:     m.builtAt,
 		ShowAll: m.showAll,
 		Window:  finishedWindow,
 	})
@@ -144,24 +165,57 @@ func flatten(sessions []board.Session) []line {
 	return lines
 }
 
-func (m *Model) clampCursor() {
+func (m *Model) settle() {
 	count := len(flatten(m.sessions()))
-	if m.cursor >= count {
-		m.cursor = count - 1
+	m.cursor = min(m.cursor, count-1)
+	m.cursor = max(m.cursor, 0)
+	rows := m.visibleRows()
+	if m.cursor < m.offset {
+		m.offset = m.cursor
 	}
-	if m.cursor < 0 {
-		m.cursor = 0
+	if m.cursor >= m.offset+rows {
+		m.offset = m.cursor - rows + 1
 	}
+	m.offset = max(min(m.offset, count-rows), 0)
+}
+
+func (m Model) visibleRows() int {
+	if m.height == 0 {
+		return math.MaxInt32
+	}
+	chrome := 4
+	if m.err != nil {
+		chrome++
+	}
+	if !m.loaded || len(m.sessions()) == 0 {
+		chrome++
+	}
+	return max(m.height-chrome, 1)
 }
 
 func (m Model) selected() (board.Session, line, bool) {
 	sessions := m.sessions()
 	lines := flatten(sessions)
-	if len(lines) == 0 {
+	if m.cursor < 0 || m.cursor >= len(lines) {
 		return board.Session{}, line{}, false
 	}
 	l := lines[m.cursor]
 	return sessions[l.session], l, true
+}
+
+func (m Model) selection() (selection, bool) {
+	session, l, ok := m.selected()
+	return selection{sessionID: session.ID, pr: l.pr}, ok
+}
+
+func (m *Model) restoreSelection(previous selection) {
+	sessions := m.sessions()
+	for i, l := range flatten(sessions) {
+		if sessions[l.session].ID == previous.sessionID && l.pr == previous.pr {
+			m.cursor = i
+			return
+		}
+	}
 }
 
 func (m Model) openSelected() tea.Cmd {
