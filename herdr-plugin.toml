@@ -1,0 +1,22 @@
+id = "rigelstpierre.devin-board"
+name = "Devin Board"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "My Devin Cloud sessions with status and the live GitHub status of their PRs."
+platforms = ["macos", "linux"]
+
+[[build]]
+platforms = ["macos", "linux"]
+command = ["go", "build", "-o", "bin/herdr-devin-board", "./cmd/herdr-devin-board"]
+
+[[actions]]
+id = "open"
+title = "Open Devin board"
+contexts = ["workspace"]
+command = ["bash", "-c", "exec \"${HERDR_BIN_PATH:-herdr}\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint board"]
+
+[[panes]]
+id = "board"
+title = "Devin"
+placement = "tab"
+command = ["bash", "bin/run"]

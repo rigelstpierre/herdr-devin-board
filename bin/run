@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="${HERDR_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+exec "$root/bin/herdr-devin-board"
